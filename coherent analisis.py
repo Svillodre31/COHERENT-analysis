@@ -78,7 +78,7 @@ grafchieffi = False         # Grafica de chi con y sin eficiencias
 grafmarefi = False          # Marginaliza el nuevo chi 
 grafchibi = False           # Grafica del chi con distribucion temporal y energetica
 grafmarbi = False            # Grafica de la marginalización con temporal y enegetica
-
+grafchicobi = False         # Grafica comparativa entre tamaños al meter info temporal
 
 'Gráficas de correlación con la aproximación final'
 grafcorrefici = False       # Grafica de correlacion con las eficiencias
@@ -1684,6 +1684,35 @@ if grafchibi or grafmarbi or grafcorbi:
         std_matrix_efi_bi  = np.outer(std_devs_efi_bi , std_devs_efi_bi)
         corr_matrix_efi_bi  = cov_efi_bi /std_matrix_efi_bi 
         
+if grafchicobi:
+    'Generamos el array de Q'
+    extremos_mu_rec = np.array([Q_2_SM*(1-ffu),Q_2_SM*(1+ffu)])     
+    extremos_ee_rec  = np.array([Q_2_SM*(1-ffe),Q_2_SM*(1+ffe)])     
+    q_array_mu_rec  = np.linspace(extremos_mu_rec[0], extremos_mu_rec[1],splitred) 
+    q_array_ee_rec  = np.linspace(extremos_ee_rec[0], extremos_ee_rec[1],splitred)
+    q_red_rec  = np.vstack((q_array_mu_rec , q_array_ee_rec ))
+    q_meshgrid_rec  = np.meshgrid(*q_red_rec )
+    qu_rec ,qe_rec  = q_meshgrid_rec  
+    
+    'Calculamos los valores de N_ij'
+    N_bins_2d_bi =  np.tensordot(g_p,N_bins_p_RE[bin_corte:],axes=0) + np.tensordot(g_d,N_bins_d_RE[bin_corte:],axes=0) 
+    N_bins_2d_bi_rec_f = np.tensordot(g_p,N_bins_p_rec_f[bin_corte:],axes=0) + np.tensordot(g_d,N_bins_d_rec_f[bin_corte:],axes=0) 
+    
+    'Calculamos los coeficientes sin la Q'
+    N_bins_2d_bi_rec_f_nq = temporizador_bins(N_binsnq_f3,g_p,g_d)
+    N_bins_2d_bi_nq = temporizador_bins(N_binsnq_RE_3,g_p,g_d)
+    
+    'Calculamos la funcion chi'
+    chi_f_bi_com = chi_2q_bi(q_meshgrid_rec,N_bins_2d_bi_rec_f,N_bins_2d_bi_rec_f_nq,N_bins_2d_bi_rec_f**0.5)  
+    chi_RE_bi_com = chi_2q_bi(q_meshgrid_rec,N_bins_2d_bi,N_bins_2d_bi_nq,np.maximum(N_bins_2d_bi**0.5**0.5, 1)) 
+    chi_rec_f_com = chi_2q(q_meshgrid_rec,N_bins_f,N_binsnq_f,N_bins_f**0.5,False)
+    chi_rec_RE_com = chi_2q(q_meshgrid_rec,N_bins_RE,N_binsnq_RE,np.maximum(N_bins_RE**0.5, 1),False) 
+    
+    'Minimizamos la función chi'
+    Z_rec_f_bi_com = (chi_f_bi_com - np.min(chi_f_bi_com))
+    Z_RE_bi_com = (chi_RE_bi_com - np.min(chi_RE_bi_com))
+    Z_RE_com = (chi_rec_RE_com - np.min(chi_rec_RE_com))
+    Z_rec_f_com = (chi_rec_f_com - np.min(chi_rec_f_com))        
 
 #################################################################################################################################################
 #################################################################################################################################################
@@ -2333,7 +2362,7 @@ if grafmarefi:
     else:
         plt.show()   
         
-'Grafica del chi con la distribucion energetica y espacial'        
+'Grafica del chi con la distribucion energetica y temporal'        
 if grafchibi and Graf:
     fig6, ax6 = plt.subplots(dpi = 190)
     contour_rec_f = ax6.contour(qu_bi, qe_bi, Z_rec_f_bi, levels=[0, sigma], colors=['blue'], linestyles='-', linewidths=1.5)   # Sin nada
@@ -2361,6 +2390,7 @@ if grafchibi and Graf:
     else:
         plt.show()
         
+'Marginalizamos chi con la distribucion energetica y temporal'           
 if grafmarbi:
     fig1, (ax11, ax12) = plt.subplots(2, 1, dpi=190)
     fig1.suptitle(r'Marginalización de $\chi^{2} (\tilde{Q}_{\mu}^{2},\tilde{Q}_{e}^{2})$ con bins energéticos y temporales', fontsize=18)
@@ -2389,8 +2419,32 @@ if grafmarbi:
     if save == True: 
         plt.savefig('marginal bi.png')
     else:
-        plt.show()        
-  
+        plt.show()    
+        
+'Grafica del chi comaparando distribucion energetica y temporal'           
+ if grafchicobi and Graf:
+    fig7, ax7 = plt.subplots(dpi = 190) 
+    contour_rec_com = ax7.contour(qu_rec, qe_rec, Z_rec_f_com, levels=[0, sigma], colors=['purple'], linestyles='-', linewidths=2)
+    contour_RE_com = ax7.contour(qu_rec, qe_rec, Z_RE_com, levels=[0, sigma], colors=['purple'], linestyles='-.', linewidths=2)
+    contour_rec_f_com = ax7.contour(qu_rec, qe_rec, Z_rec_f_bi_com, levels=[0, sigma], colors=['blue'], linestyles='-', linewidths=1.5) 
+    contour_RE_com = ax7.contour(qu_rec, qe_rec, Z_RE_bi_com, levels=[0, sigma], colors=['blue'], linestyles='-.', linewidths=1.5)    
+    scatter_sm = ax7.scatter(Q_2_SM, Q_2_SM, color='green', marker='+', s=50, label='Valor modelo estandar')      
+    ax7.set_xlabel(r'$\tilde{Q}_{\mu}^{2}$', fontsize=16)
+    ax7.set_ylabel(r'$\tilde{Q}_{e}^{2}$', fontsize=16)
+    ax7.set_title(r' Variación de $\chi^2 \left( \tilde{Q}_{\mu}^{2},\tilde{Q}_{e}^{2} \right)$ con la inclusion de bins temporales', fontsize=18)        
+    ax7.axis([-2500.,13500.,-10000.,22000.])
+    ax7.grid(True, linestyle='--', alpha=0.8)
+    ax7.legend(fontsize=12)  
+    legend_elements = [
+        plt.Line2D([0], [0], marker='o', color='blue', markersize=15, linestyle='None', label=r'Con bins temporales'),
+        plt.Line2D([0], [0], marker='o', color='purple', markersize=15, linestyle='None', label=r'Sin bins temporales'),
+        plt.Line2D([0], [0], color='black', linestyle='-', linewidth=2, label= r'Aproximación inicial'),
+        plt.Line2D([0], [0], color='black', linestyle='-.', linewidth=2, label= r'Aproximación final')]
+    ax7.legend(handles=legend_elements, loc='best', fontsize=12)
+    if save == True: 
+        plt.savefig('chi2 bicom.png')
+    else:
+        plt.show() 
 #################################################################################################################################################
 #################################################################################################################################################
 'Imprimimos algunos valores de interes'
